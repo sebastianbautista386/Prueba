@@ -1,0 +1,378 @@
+---
+title: "Data table"
+output: html_document
+---
+## Inventories Data
+
+```{r,include=FALSE}
+# PS Paisagem Sustentaveis
+
+PS <- read.csv('D:/Lidar/Datos/00_Paisagem_Sustentaves_first.csv')
+PS$parcela<-paste(PS$location,PS$plotID,PS$sizeplot,PS$year,sep=" ")
+
+## AC  Embrapa Acre - Marcus V. D'Oliveira
+
+AC <- read.csv('D:/Lidar/Datos/00_Embrapa_Acre_Marcus_first.csv') ##No id tree.type...only trees??##
+AC$parcela<-paste(AC$location,AC$plotID,AC$sizeplot,AC$year,sep=" ")
+
+## INV Inventories already merged and names fixed
+INV<-read.csv('D:/Lidar/Datos/all_inventories_wd (1).csv')
+INV$parcela<-paste(INV$location,INV$plotID,INV$sizeplot,INV$year,sep=" ")
+INV<-INV[!INV$sizeplot=='?x500',]
+INV<-INV[!INV$sizeplot=='20x500',]
+
+INVagb<-read.csv('D:/Lidar/Datos/all_inventories_wd_agb.csv')
+INVagb<-INVagb[!INVagb$sizeplot=='?x500',]
+INVagb<-INVagb[!INVagb$sizeplot=='20x500',]
+
+##Number of Dead
+
+var<-c("location","parcela","Name")
+lnomda <- lapply(var, 
+                 function(s) {
+                   z<-table(INV$dead,INV[,s])
+                   data.frame(cbind(t(z),variablecomun=row.names(t(z))))
+                 })
+names(lnomda)<- var
+db.parcela<-unique(INV[c("state","Name","location","plotID","sizeplot","parcela","year","owner")])
+for (i in 1:length(lnomda)) { 
+  colnames(lnomda[[i]])[1:2]<-paste0(colnames(lnomda[[i]])[1:2],names(lnomda)[i])
+  colnames(lnomda[[i]])<-gsub("TRUE","Dead",colnames(lnomda[[i]]))
+  colnames(lnomda[[i]])<-gsub("FALSE","Alive",colnames(lnomda[[i]]))
+  db.parcela<-merge(db.parcela,lnomda[[i]],by.x=names(lnomda)[i], by.y ="variablecomun")
+}
+##Number of DBH=NA
+
+l.mdb <- lapply(var,
+                function(s) data.frame(NA.DBH.=tapply(INV$DBH,INV[,s],
+                                   function(x) length(x[is.na(x)]))))
+
+
+lnomdb<-lapply(l.mdb,function(b) {
+  b$variablecomun<-row.names(b) 
+  return(b)
+  })
+
+names(lnomdb) <- var
+for (i in 1:length(lnomdb)) { 
+  colnames(lnomdb[[i]])[1]<-paste0(colnames(lnomdb[[i]])[1],names(lnomdb)[i])
+  db.parcela<-merge(db.parcela,lnomdb[[i]],by.x=names(lnomdb)[i], by.y ="variablecomun")
+}
+
+##Remove lianas,dead and DBH=NA
+
+INV$tree.type<-gsub("l","L",INV$tree.type)
+INV<-INV[!INV$tree.type=='L',] 
+INV<-INV[!INV$dead==TRUE,] 
+INV<-INV[!is.na(INV$DBH),] 
+INV[INV$owner=="MarVin",13]<-INV[INV$owner=="MarVin",13]/10
+INV<-INV[!(INV$DBH<10),]
+
+
+##DBH mean,max,min
+
+l.mdb <- lapply(var,
+                function(s) tapply(INVagb$DBH,INVagb[,s],
+                                   function(x) data.frame(mean(x),max(x),min(x))))
+l.dcb <- lapply(l.mdb,function(x) do.call(rbind,x))
+names(l.dcb) <- var
+lnomdb<-lapply(l.dcb,function(b) {b$variablecomun<-row.names(b); return(b)})
+for (i in 1:length(lnomdb)) { 
+  colnames(lnomdb[[i]])[1:3]<-paste0(colnames(lnomdb[[i]])[1:3],names(lnomdb)[i])
+  colnames(lnomdb[[i]])<-gsub("[.]x",".DBH",colnames(lnomdb[[i]]))
+  db.parcela<-merge(db.parcela,lnomdb[[i]],by.x=names(lnomdb)[i], by.y ="variablecomun")
+}
+
+##Height min, max, mean
+
+l.mh <- lapply(var,
+               function(s) tapply(INVagb$height_wplog2,INVagb[,s],
+                                  function(x) data.frame(mean(x),max(x),min(x))))
+l.dch <- lapply(l.mh,function(x) do.call(rbind,x))
+names(l.dch) <- var
+lnomh<-lapply(l.dch,function(b) {b$variablecomun<-row.names(b); return(b)})
+for (i in 1:length(lnomh)) { 
+  colnames(lnomh[[i]])[1:3]<-paste0(colnames(lnomh[[i]])[1:3],names(lnomh)[i])
+  colnames(lnomh[[i]])<-gsub("[.]x",".Height",colnames(lnomh[[i]]))
+  db.parcela<-merge(db.parcela,lnomh[[i]],by.x=names(lnomh)[i], by.y ="variablecomun")
+}
+
+##wood density mean,max,min
+
+l.wd <- lapply(var,
+                function(s) tapply(INVagb$meanWD,INVagb[,s],
+                                   function(x) data.frame(mean(x),max(x),min(x))))
+l.wdcb <- lapply(l.wd,function(x) do.call(rbind,x))
+names(l.wdcb) <- var
+lnomwdcb<-lapply(l.wdcb,function(b) {b$variablecomun<-row.names(b); return(b)})
+for (i in 1:length(lnomwdcb)) { 
+  colnames(lnomwdcb[[i]])[1:3]<-paste0(colnames(lnomwdcb[[i]])[1:3],names(lnomwdcb)[i])
+  colnames(lnomwdcb[[i]])<-gsub("[.]x",".WD",colnames(lnomwdcb[[i]]))
+  db.parcela<-merge(db.parcela,lnomwdcb[[i]],by.x=names(lnomwdcb)[i], by.y ="variablecomun")
+}
+##Number of trees and palms
+
+
+lnomtp <- lapply(var, 
+                 function(s) {
+                   z<-table(INVagb$tree.type,INVagb[,s])
+                   data.frame(cbind(t(z),variablecomun=row.names(t(z))))
+                 })
+names(lnomtp)<- var
+for (i in 1:length(lnomtp)) { 
+  colnames(lnomtp[[i]])[1:2]<-paste0(colnames(lnomtp[[i]])[1:2],names(lnomtp)[i])
+  colnames(lnomtp[[i]])<-gsub("O","No.trees.",colnames(lnomtp[[i]]))
+  colnames(lnomtp[[i]])<-gsub("P","No.palms.",colnames(lnomtp[[i]]))
+  db.parcela<-merge(db.parcela,lnomtp[[i]],by.x=names(lnomtp)[i], by.y ="variablecomun")
+}
+str(db.parcela)
+db.parcela$No.trees.parcela<-as.numeric(db.parcela$No.trees.parcela)
+db.parcela$No.trees.Name<-as.numeric(db.parcela$No.trees.Name)
+db.parcela$No.trees.location<-as.numeric(db.parcela$No.trees.location)
+db.parcela$No.palms.parcela<-as.numeric(db.parcela$No.palms.parcela)
+db.parcela$No.palms.Name<-as.numeric(db.parcela$No.palms.Name)
+db.parcela$No.palms.location<-as.numeric(db.parcela$No.palms.location)
+
+## Number of families
+
+l.fmm<-lapply(var, 
+       function(s)as.data.frame(t(data.frame(tapply(INVagb$Accepted_family,INVagb[,s],
+                          function(x)data.frame(nrow(data.frame(table(unique(cbind(x))[,1])))))))))
+
+names(l.fmm)<-c(var)
+
+row.names(l.fmm[[2]])<-gsub("[.]"," ",row.names(l.fmm[[2]]))
+
+for(i in 1:length(l.fmm)){
+  l.fmm[[i]]$variablecomun<-row.names(l.fmm[[i]]) 
+} 
+
+for (i in 1:length(l.fmm)) { 
+  colnames(l.fmm[[i]])[1]<-paste0(colnames(l.fmm[[i]])[1],names(l.fmm)[i])
+  colnames(l.fmm[[i]])<-gsub("V1","No.families.",colnames(l.fmm[[i]]))
+  db.parcela<-merge(db.parcela,l.fmm[[i]],by.x=names(l.fmm)[i], by.y ="variablecomun",all.x=T)
+}
+
+## Number of genus
+
+l.gmm<-lapply(var, 
+              function(s)as.data.frame(t(data.frame(tapply(INVagb$genus.tnrs,INVagb[,s],
+                                                           function(x)data.frame(nrow(data.frame(table(unique(cbind(x))[,1])))))))))
+
+names(l.gmm)<-c(var)
+
+row.names(l.gmm[[2]])<-gsub("[.]"," ",row.names(l.gmm[[2]]))
+
+for(i in 1:length(l.gmm)){
+  l.gmm[[i]]$variablecomun<-row.names(l.gmm[[i]]) 
+} 
+
+for (i in 1:length(l.gmm)) { 
+  colnames(l.gmm[[i]])[1]<-paste0(colnames(l.gmm[[i]])[1],names(l.gmm)[i])
+  colnames(l.gmm[[i]])<-gsub("V1","No.genus.",colnames(l.gmm[[i]]))
+  db.parcela<-merge(db.parcela,l.gmm[[i]],by.x=names(l.gmm)[i], by.y ="variablecomun",all.x = T)
+}
+
+## Number of species
+
+l.smm<-lapply(var, 
+              function(s)as.data.frame(t(data.frame(tapply(INVagb$species.name,INVagb[,s],
+                                                           function(x)data.frame(nrow(data.frame(table(unique(cbind(x))[,1])))))))))
+
+names(l.smm)<-c(var)
+
+row.names(l.smm[[2]])<-gsub("[.]"," ",row.names(l.smm[[2]]))
+
+for(i in 1:length(l.smm)){
+  l.smm[[i]]$variablecomun<-row.names(l.smm[[i]]) 
+} 
+
+for (i in 1:length(l.gmm)) { 
+  colnames(l.smm[[i]])[1]<-paste0(colnames(l.smm[[i]])[1],names(l.smm)[i])
+  colnames(l.smm[[i]])<-gsub("V1","No.species.",colnames(l.smm[[i]]))
+  db.parcela<-merge(db.parcela,l.smm[[i]],by.x=names(l.smm)[i], by.y ="variablecomun",all.x = T)
+}
+
+
+##Location DBH method
+
+unique(db.parcela$location)
+dmn<-c("35","","35","35","","","","","","35","35","35","10","10","35","35","10","35","10","35","35","","35","","10")
+dmn1<-data.frame(location=unique(db.parcela$location),methodDBH=dmn)
+dmn1$methodDBH[dmn1$methodDBH==""]<-NA
+dmna<-dmn1[rowSums(is.na(dmn1)) > 0,]
+db.parcela<-merge(db.parcela,dmn1,by=c("location"),all.x=T)
+
+##tch names lidar
+tcn <- read.csv('D:/Lidar/Datos/tch_names (1).csv',row.names = 1)
+tcn1<-tcn[-c(1:136),]
+str(tcn1)
+az<-unique(cbind(INVagb$parcela,INVagb$location,INVagb$year))
+az=az[order(az[,1],az[,2],az[,3]),]
+azz<-table(az[,2],az[,3])
+ge<-gregexpr(pattern ='_[Ll]',tcn1)
+unlist(ge)
+(ss<-substr(tcn1,1,unlist(ge)-1))
+unlist(gregexpr(pattern="_2",ss))
+sss<-strsplit(ss,"_")
+s2<-do.call(rbind,sss)
+s3<-data.frame(location=paste(s2[,1],s2[,2],sep="_"),year=s2[,3])
+s4<-table(s3[,1],s3[,2])
+
+tcnf<-tcn1[-c(4,28,35)]
+
+lo<-strsplit(tcnf,"_2")
+x=lo[[1]]
+x[1]
+
+l<-sapply(lo,function(x) x[1])
+dd<-data.frame(location=l,tch_unclip=tcnf)
+
+tcn2<-strsplit(tcnf,"_")
+l2<-sapply(tcn2,function(x) x[3])
+
+dd3<-data.frame(location=l,tch_unclip=tcnf,year=l2)
+
+cs<-unique(INVagb$location)
+dd3$location[!dd3$location%in%cs]
+dd4<-dd3[dd3$location%in%cs,]
+duplicated(dd3[,c(1,3)])
+dd3[duplicated(dd3[,c(1,3)]),]
+ym<-c("2015","2018","2013","2017","2014","2018","2012","2014","2018","2009","2011","2016","2014","2018","2011","2014","2015","2013","2013","2018","2014","2014","2011","2014","2014","2018","2009","2011","2016","2012","2013","2015","2018")
+ymp<-data.frame(dd4,yearm=ym)
+ymp$yearlac<-as.numeric(ymp[,3])-as.numeric(ymp[,4])
+ymp<-ymp[,c(1,2,4,5)]
+names(ymp)
+colnames(ymp)<-c("location","tch_unclip","year","yearlag_unclip")
+
+db.parcela<-merge(db.parcela,ymp,by=c("location","year"),all.x=TRUE)
+
+acu<-unique(AC$parcela)
+tcnac<-sort(tcn[c(1:136),])
+acl<-tcn[c(1:136),]
+acul<-data.frame(parcela=acu,tch_cliped=acl)
+acul1<-strsplit(acul$parcela," ")
+lacu<-sapply(acul1,function(x) x[4])
+acul3<-data.frame(acul,year=lacu)
+yacm<-c(rep("2013",4),rep("2011",50),rep("2013",10),rep("2015",15),rep("2015",15),rep("2015",30),rep("2015",12))
+acul4<-data.frame(acul3,yearm=yacm)
+acul4$yearlag_clip<-as.numeric(acul4[,3])-as.numeric(acul4[,4])
+acul5<-acul4[,c(1,2,3,5)]
+
+db.parcela<-merge(db.parcela,acul5,by=c("parcela","year"),all.x = T)
+
+##Number of plots by location
+
+cbind(INVagb$parcela,INVagb$location,INVagb$year)
+INVagb[,c("parcela","location")]
+az<-unique(cbind(INVagb$parcela,INVagb$location,INVagb$year))
+az=az[order(az[,1],az[,2],az[,3]),]
+table(az[,2],az[,3])
+table(az[,2])
+cbind(db.parcela$parcela,db.parcela$location,db.parcela$year)
+db.parcela[,c("parcela","location")]
+az2<-unique(cbind(INVagb$parcela,INVagb$location,INVagb$year))
+az2=az2[order(az2[,1],az2[,2],az2[,3]),]
+table(az2[,2],az2[,3])
+table(az2[,2])
+
+azz<-data.frame(table(az2[,2]))
+names(azz)<-c("location","No.parcelas.by.location")
+db.parcela<-merge(db.parcela,azz,by=c("location"),all.x = T)
+
+##biomas by parcela DBH > 35
+
+INVagb35<-INVagb[!(INVagb$DBH<35),]
+
+
+sum(INVagb35$AGB_wplog2,na.rm=T)
+
+a35<-tapply(INVagb35$AGB_wpfeld,INVagb35[,"parcela"],
+            function(x) sum(x))
+b35<-tapply(INVagb35$AGB_wpchav,INVagb35[,"parcela"],
+            function(x) sum(x))
+c35<-tapply(INVagb35$AGB_wpmich,INVagb35[,"parcela"],
+            function(x) sum(x))
+d35<-tapply(INVagb35$AGB_wpweib,INVagb35[,"parcela"],
+            function(x) sum(x))
+e35<-tapply(INVagb35$AGB_wplog2,INVagb35[,"parcela"],
+       function(x) sum(x))
+f35<-tapply(INVagb35$AGB_wplog1,INVagb35[,"parcela"],
+            function(x) sum(x))
+
+biomass35<-data.frame(parcela=row.names(b35),AGB.35.wpfeld=a35,AGB.35.wpchav=b35,AGB.35.wpmich=c35,AGB.35.wpweib=d35,AGB.35.wplog2=e35,AGB.35.wplog1=f35)
+
+db.parcela<-merge(db.parcela,biomass35,by="parcela",all.x = T)
+
+table(db.parcela$sizeplot)
+arp35<-data.frame(sizeplot=unique(db.parcela$sizeplot),areaplot35=c(2500,10000,1600,900))
+db.parcela<-merge(db.parcela,arp35,by="sizeplot",all.x=T)
+
+db.parcela$AGB.35.area.wpfeld<-db.parcela$AGB.35.wpfeld/db.parcela$areaplot35
+db.parcela$AGB.35.area.wpchav<-db.parcela$AGB.35.wpchav/db.parcela$areaplot35
+db.parcela$AGB.35.area.wpmich<-db.parcela$AGB.35.wpmich/db.parcela$areaplot35
+db.parcela$AGB.35.area.wpweib<-db.parcela$AGB.35.wpweib/db.parcela$areaplot35
+db.parcela$AGB.35.area.wplog2<-db.parcela$AGB.35.wplog2/db.parcela$areaplot35
+db.parcela$AGB.35.area.wplog1<-db.parcela$AGB.35.wplog1/db.parcela$areaplot35
+
+##biomas by parcela DBH 10:35
+
+INVagb10<-INVagb[!(INVagb$DBH>35),]
+
+
+sum(INVagb10$AGB_wplog2,na.rm=T)
+
+a10<-tapply(INVagb10$AGB_wpfeld,INVagb10[,"parcela"],
+            function(x) sum(x))
+b10<-tapply(INVagb10$AGB_wpchav,INVagb10[,"parcela"],
+            function(x) sum(x))
+c10<-tapply(INVagb10$AGB_wpmich,INVagb10[,"parcela"],
+            function(x) sum(x))
+d10<-tapply(INVagb10$AGB_wpweib,INVagb10[,"parcela"],
+            function(x) sum(x))
+e10<-tapply(INVagb10$AGB_wplog2,INVagb10[,"parcela"],
+            function(x) sum(x))
+f10<-tapply(INVagb10$AGB_wplog1,INVagb10[,"parcela"],
+            function(x) sum(x))
+
+biomass10<-data.frame(parcela=row.names(b10),AGB.10.wpfeld=a10,AGB.10.wpchav=b10,AGB.10.wpmich=c10,AGB.10.wpweib=d10,AGB.10.wplog2=e10,AGB.10.wplog1=f10)
+
+db.parcela<-merge(db.parcela,biomass10,by="parcela",all.x = T)
+
+db.parcela$locyear<-paste(db.parcela$location,db.parcela$year,db.parcela$sizeplot,sep=" ")
+table(db.parcela$locyear)
+arp10<-data.frame(locyear=unique(db.parcela$locyear),areaplot10=c(2500,2500,250,500,250,1000,1000,10000,2500,10000,10000,10000,10000,250,500,250,250,1000,250,250,250,10000,1600,900,250,500,1000,1000,1000,2500,10000))
+
+db.parcela<-merge(db.parcela,arp10,by="locyear",all.x=T)
+
+db.parcela$AGB.10.area.wpfeld<-db.parcela$AGB.10.wpfeld/db.parcela$areaplot10
+db.parcela$AGB.10.area.wpchav<-db.parcela$AGB.10.wpchav/db.parcela$areaplot10
+db.parcela$AGB.10.area.wpmich<-db.parcela$AGB.10.wpmich/db.parcela$areaplot10
+db.parcela$AGB.10.area.wpweib<-db.parcela$AGB.10.wpweib/db.parcela$areaplot10
+db.parcela$AGB.10.area.wplog2<-db.parcela$AGB.10.wplog2/db.parcela$areaplot10
+db.parcela$AGB.10.area.wplog1<-db.parcela$AGB.10.wplog1/db.parcela$areaplot10
+##total biomas
+
+db.parcela$totalbiomas.wpfeld<-db.parcela$AGB.10.wpfeld+db.parcela$AGB.35.wpfeld
+db.parcela$totalbiomas.wpchav<-db.parcela$AGB.10.wpchav+db.parcela$AGB.35.wpchav
+db.parcela$totalbiomas.wpmich<-db.parcela$AGB.10.wpmich+db.parcela$AGB.35.wpmich
+db.parcela$totalbiomas.wpweib<-db.parcela$AGB.10.wpweib+db.parcela$AGB.35.wpweib
+db.parcela$totalbiomas.wplog2<-db.parcela$AGB.10.wplog2+db.parcela$AGB.35.wplog2
+db.parcela$totalbiomas.wplog1<-db.parcela$AGB.10.wplog1+db.parcela$AGB.35.wplog1
+
+## total biomas per area
+
+db.parcela$totalbiomas.wpfeld.area<-(db.parcela$AGB.10.wpfeld+db.parcela$AGB.35.wpfeld)/db.parcela$areaplot35
+db.parcela$totalbiomas.wpchav.area<-(db.parcela$AGB.10.wpchav+db.parcela$AGB.35.wpchav)/db.parcela$areaplot35
+db.parcela$totalbiomas.wpmich.area<-(db.parcela$AGB.10.wpmich+db.parcela$AGB.35.wpmich)/db.parcela$areaplot35
+db.parcela$totalbiomas.wpweib.area<-(db.parcela$AGB.10.wpweib+db.parcela$AGB.35.wpweib)/db.parcela$areaplot35
+db.parcela$totalbiomas.wplog2.area<-(db.parcela$AGB.10.wplog2+db.parcela$AGB.35.wplog2)/db.parcela$areaplot35
+db.parcela$totalbiomas.wplog1.area<-(db.parcela$AGB.10.wplog1+db.parcela$AGB.35.wplog1)/db.parcela$areaplot35
+
+```
+
+
+```{r,echo=FALSE}
+library(DT)
+DT::datatable(db.parcela,class="cell-border stripe",rownames = F,filter="top",extensions = "Buttons",options = list(autoWidth=T,dom="Bfrtip",buttons=c('copy', 'csv', 'excel', 'pdf')))
+```
