@@ -1,6 +1,5 @@
 ---
 title: "Data table"
-output: html_document
 ---
 ## Inventories Data
 
